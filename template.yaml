@@ -1,0 +1,47 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Resources:
+  ImageSearchFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Handler: index.handler
+      Role: arn:aws:iam::699475918643:role/MyLambdaExecutionRole
+      Runtime: nodejs18.x
+      Code:
+        S3Bucket: myawsbuckettodoapp
+        S3Key: todo-app.zip
+
+  ApiGateway:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      Name: "ImageSearchAPI"
+
+  RootResource:
+    Type: AWS::ApiGateway::Resource
+    Properties:
+      RestApiId: !Ref ApiGateway
+      ParentId: !GetAtt ApiGateway.RootResourceId
+      PathPart: "app"
+
+  ApiGatewayMethod:
+    Type: AWS::ApiGateway::Method
+    Properties:
+      AuthorizationType: NONE
+      HttpMethod: GET
+      ResourceId: !Ref RootResource
+      RestApiId: !Ref ApiGateway
+      Integration:
+        IntegrationHttpMethod: POST
+        Type: AWS_PROXY
+        Uri: !Sub arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${ImageSearchFunction.Arn}/invocations
+
+  ApiGatewayDeployment:
+    Type: AWS::ApiGateway::Deployment
+    Properties:
+      RestApiId: !Ref ApiGateway
+      StageName: "prod"
+    DependsOn: ApiGatewayMethod
+
+Outputs:
+  ApiUrl:
+    Value: !Sub "https://${ApiGateway}.execute-api.${AWS::Region}.amazonaws.com/prod/app"
+    Description: "URL for the JavaScript application"
